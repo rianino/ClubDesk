@@ -1,0 +1,21 @@
+# Environment and secrets
+.env
+*.env
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# n8n local data (if running locally)
+.n8n/
+
+# Node modules (if any scripts added later)
+node_modules/
+
+# Claude Code local settings
+.claude/

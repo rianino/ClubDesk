@@ -1,0 +1,308 @@
+{
+  "name": "Retell AI Tool Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "retell-action",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000001",
+      "name": "Webhook - Retell Action",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 460],
+      "webhookId": "retell-action"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "rsvp_guest",
+              "value": "rsvp_guest",
+              "operation": "equals"
+            },
+            {
+              "outputKey": "escalate",
+              "value": "escalate",
+              "operation": "equals"
+            },
+            {
+              "outputKey": "get_next_meeting",
+              "value": "get_next_meeting",
+              "operation": "equals"
+            }
+          ]
+        },
+        "dataType": "string",
+        "value1": "={{ $json.body.tool_name }}"
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000002",
+      "name": "Switch - Route by Tool Name",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [480, 460]
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "update",
+        "calendarId": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "eventId": "={{ $json.body.args.event_id }}",
+        "updateFields": {
+          "attendees": {
+            "attendee": [
+              {
+                "email": "={{ $json.body.args.guest_email }}",
+                "displayName": "={{ $json.body.args.guest_name }}",
+                "responseStatus": "accepted"
+              }
+            ]
+          },
+          "sendUpdates": "all"
+        }
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000003",
+      "name": "Google Calendar - Add Attendee",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [760, 260],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "google-calendar-cred-id",
+          "name": "Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    result: `Successfully RSVP'd ${$input.first().json.body.args.guest_name} (${$input.first().json.body.args.guest_email}) for the event. They will receive a calendar invitation.`,\n    status: \"success\"\n  }\n}];"
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000004",
+      "name": "Format RSVP Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 260]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.args.escalation_email || 'owner@clubdesk.example.com' }}",
+        "subject": "=Escalation: Live Call from {{ $json.body.args.caller_name || 'Unknown Caller' }}",
+        "emailType": "text",
+        "message": "=A live phone call has been escalated by the AI agent.\n\nCaller: {{ $json.body.args.caller_name || 'Unknown' }}\nPhone: {{ $json.body.args.caller_phone || 'Unknown' }}\nReason: {{ $json.body.args.reason || 'No reason provided' }}\n\nPlease follow up at your earliest convenience.",
+        "options": {}
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000005",
+      "name": "Gmail - Send Escalation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [760, 460],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-cred-id",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    result: `Your request has been escalated. A club representative will follow up with you shortly. Reference: ${$input.first().json.id || 'N/A'}`,\n    status: \"success\"\n  }\n}];"
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000006",
+      "name": "Format Escalation Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 460]
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendarId": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "timeMin": "={{ new Date().toISOString() }}",
+          "singleEvents": true,
+          "orderBy": "startTime",
+          "query": "={{ $json.body.args.search_query || '' }}"
+        }
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000007",
+      "name": "Google Calendar - Get Next Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [760, 660],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "google-calendar-cred-id",
+          "name": "Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const event = $input.first().json;\n\nif (!event || !event.summary) {\n  return [{\n    json: {\n      result: \"There are no upcoming meetings scheduled at this time.\",\n      status: \"no_results\"\n    }\n  }];\n}\n\nconst startDate = new Date(event.start.dateTime || event.start.date);\nconst options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' };\nconst formattedDate = startDate.toLocaleDateString('en-US', options);\nconst location = event.location || 'No location specified';\n\nreturn [{\n  json: {\n    result: `The next meeting is \"${event.summary}\" on ${formattedDate}. Location: ${location}.`,\n    event_id: event.id,\n    event_name: event.summary,\n    event_date: event.start.dateTime || event.start.date,\n    event_location: location,\n    status: \"success\"\n  }\n}];"
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000008",
+      "name": "Format Next Meeting Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 660]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.result, status: $json.status }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1b2c3d4-1111-4aaa-bbbb-000000000009",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1300, 460]
+    }
+  ],
+  "connections": {
+    "Webhook - Retell Action": {
+      "main": [
+        [
+          {
+            "node": "Switch - Route by Tool Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Route by Tool Name": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar - Add Attendee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail - Send Escalation Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Calendar - Get Next Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar - Add Attendee": {
+      "main": [
+        [
+          {
+            "node": "Format RSVP Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format RSVP Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Send Escalation Email": {
+      "main": [
+        [
+          {
+            "node": "Format Escalation Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Escalation Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar - Get Next Event": {
+      "main": [
+        [
+          {
+            "node": "Format Next Meeting Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Next Meeting Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "ClubDesk",
+      "id": "tag-clubdesk"
+    },
+    {
+      "name": "Retell AI",
+      "id": "tag-retell"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-16T00:00:00.000Z",
+  "versionId": "1"
+}

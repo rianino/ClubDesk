@@ -1,0 +1,240 @@
+{
+  "name": "ClubDesk Weekly Summary Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0,
+              "triggerAtDay": {
+                "value": 0
+              }
+            }
+          ]
+        }
+      },
+      "id": "c3d4e5f6-3333-4ccc-dddd-000000000001",
+      "name": "Cron - Every Sunday 9AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate 7 days ago for filtering\nconst now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\n\nreturn [{\n  json: {\n    seven_days_ago: sevenDaysAgo.toISOString(),\n    today: now.toISOString(),\n    week_start: sevenDaysAgo.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),\n    week_end: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })\n  }\n}];"
+      },
+      "id": "c3d4e5f6-3333-4ccc-dddd-000000000002",
+      "name": "Calculate Date Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 460]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Call Log",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Timestamp",
+              "lookupValue": "={{ $json.seven_days_ago }}",
+              "condition": "gte"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3d4e5f6-3333-4ccc-dddd-000000000003",
+      "name": "Google Sheets - Read Call Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [700, 460],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred-id",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (items.length === 0) {\n  return [{\n    json: {\n      has_data: false,\n      log_text: 'No calls were logged this week.',\n      total_calls: 0,\n      week_start: $('Calculate Date Range').first().json.week_start,\n      week_end: $('Calculate Date Range').first().json.week_end\n    }\n  }];\n}\n\n// Build a text representation of all log entries\nconst logLines = items.map((item, i) => {\n  const d = item.json;\n  return `${i + 1}. [${d.Timestamp || 'N/A'}] Caller: ${d['Caller Name'] || 'Unknown'} (${d['Caller Phone'] || 'N/A'}) | Duration: ${d['Duration (s)'] || 0}s | Summary: ${d.Summary || 'N/A'} | Actions: ${d['Actions Taken'] || 'none'}`;\n});\n\n// Compute basic stats\nconst totalCalls = items.length;\nconst totalDuration = items.reduce((sum, item) => sum + (parseInt(item.json['Duration (s)']) || 0), 0);\nconst avgDuration = Math.round(totalDuration / totalCalls);\nconst rsvpCount = items.filter(item => (item.json['Actions Taken'] || '').includes('rsvp_guest')).length;\nconst escalationCount = items.filter(item => (item.json['Actions Taken'] || '').includes('escalate')).length;\n\nreturn [{\n  json: {\n    has_data: true,\n    log_text: logLines.join('\\n'),\n    total_calls: totalCalls,\n    total_duration_seconds: totalDuration,\n    avg_duration_seconds: avgDuration,\n    rsvp_count: rsvpCount,\n    escalation_count: escalationCount,\n    week_start: $('Calculate Date Range').first().json.week_start,\n    week_end: $('Calculate Date Range').first().json.week_end\n  }\n}];"
+      },
+      "id": "c3d4e5f6-3333-4ccc-dddd-000000000004",
+      "name": "Aggregate Log Entries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 460]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.httpHeaderAuth.value }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 512,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are an assistant for a private social club. Below are the call log entries from the AI phone agent for the past week ({{ $json.week_start }} - {{ $json.week_end }}).\\n\\nStats: {{ $json.total_calls }} total calls, {{ $json.rsvp_count }} RSVPs, {{ $json.escalation_count }} escalations, avg call duration {{ $json.avg_duration_seconds }}s.\\n\\nLog entries:\\n{{ $json.log_text }}\\n\\nSummarize these interactions in 3-5 bullet points. Flag anything unusual (e.g., high escalation rate, repeat callers, very long calls, or odd requests). Keep it concise and actionable.\"\n    }\n  ]\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "c3d4e5f6-3333-4ccc-dddd-000000000005",
+      "name": "Claude API - Weekly Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1220, 460],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key-cred-id",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst stats = $('Aggregate Log Entries').first().json;\n\nlet summary = 'No summary available.';\nif (response.content && Array.isArray(response.content)) {\n  summary = response.content\n    .filter(block => block.type === 'text')\n    .map(block => block.text)\n    .join('\\n');\n} else if (typeof response.content === 'string') {\n  summary = response.content;\n}\n\nconst emailBody = `<html><body style=\"font-family: Arial, sans-serif; color: #333;\">\n<h2 style=\"color: #2c5282;\">Weekly Auto-Agent Summary</h2>\n<p style=\"color: #718096;\">Report period: ${stats.week_start} &ndash; ${stats.week_end}</p>\n<hr style=\"border: 1px solid #e2e8f0;\">\n\n<h3>Quick Stats</h3>\n<table style=\"border-collapse: collapse; width: 100%; max-width: 400px;\">\n  <tr><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\"><strong>Total Calls</strong></td><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\">${stats.total_calls}</td></tr>\n  <tr><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\"><strong>RSVPs Made</strong></td><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\">${stats.rsvp_count}</td></tr>\n  <tr><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\"><strong>Escalations</strong></td><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\">${stats.escalation_count}</td></tr>\n  <tr><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\"><strong>Avg Call Duration</strong></td><td style=\"padding: 6px 12px; border: 1px solid #e2e8f0;\">${stats.avg_duration_seconds}s</td></tr>\n</table>\n\n<h3>AI Summary</h3>\n<div style=\"background: #f7fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #2c5282;\">\n${summary.replace(/\\n/g, '<br>')}\n</div>\n\n<hr style=\"border: 1px solid #e2e8f0; margin-top: 24px;\">\n<p style=\"font-size: 12px; color: #a0aec0;\">This report was automatically generated by ClubDesk Auto-Agent. Do not reply to this email.</p>\n</body></html>`;\n\nreturn [{\n  json: {\n    email_body: emailBody,\n    subject: `[ClubDesk] Auto-Agent Weekly Summary (${stats.week_start} - ${stats.week_end})`,\n    week_start: stats.week_start,\n    week_end: stats.week_end\n  }\n}];"
+      },
+      "id": "c3d4e5f6-3333-4ccc-dddd-000000000006",
+      "name": "Format Email Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1480, 460]
+    },
+    {
+      "parameters": {
+        "sendTo": "owner@clubdesk.example.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "c3d4e5f6-3333-4ccc-dddd-000000000007",
+      "name": "Gmail - Send Weekly Summary",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1740, 460],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-cred-id",
+          "name": "Gmail OAuth2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron - Every Sunday 9AM": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Date Range": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Read Call Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Read Call Log": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Log Entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Log Entries": {
+      "main": [
+        [
+          {
+            "node": "Claude API - Weekly Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API - Weekly Summary": {
+      "main": [
+        [
+          {
+            "node": "Format Email Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Email Body": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Send Weekly Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "ClubDesk",
+      "id": "tag-clubdesk"
+    },
+    {
+      "name": "Reporting",
+      "id": "tag-reporting"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-16T00:00:00.000Z",
+  "versionId": "1"
+}

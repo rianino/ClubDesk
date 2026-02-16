@@ -1,0 +1,484 @@
+{
+  "name": "Toastmasters Email Auto-Responder",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinutes",
+              "value": 2
+            }
+          ]
+        },
+        "simple": false
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        460
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract key fields from the incoming Gmail message\nconst message = items[0].json;\n\nconst from = message.payload?.headers?.find(h => h.name === 'From')?.value || '';\nconst subject = message.payload?.headers?.find(h => h.name === 'Subject')?.value || '';\nconst messageId = message.id || '';\nconst threadId = message.threadId || '';\nconst timestamp = new Date(parseInt(message.internalDate)).toISOString();\n\n// Use snippet as the body text (plain-text preview)\nconst body = message.snippet || '';\n\nreturn [\n  {\n    json: {\n      from,\n      subject,\n      body,\n      threadId,\n      messageId,\n      timestamp\n    }\n  }\n];\n"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000002",
+      "name": "Extract Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        480,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "x-api-key",
+              "value": "={{$credentials.httpHeaderAuth.value}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 500,\n  \"temperature\": 0.3,\n  \"system\": \"Paste contents of prompts/email-system.md here\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"From: {{ $json.from }}\\nSubject: {{ $json.subject }}\\n\\n{{ $json.body }}\"\n    }\n  ]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000003",
+      "name": "Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        720,
+        460
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Claude's response, splitting on ---REPLY--- and ---META--- markers\nconst content = items[0].json.content;\nconst text = Array.isArray(content)\n  ? content.map(c => c.text).join('')\n  : (typeof content === 'string' ? content : '');\n\nconst previous = items[0].json;\n\nlet replyText = text;\nlet action = 'reply_only';\nlet meta = {};\n\n// Split on markers\nconst replyMatch = text.split('---REPLY---');\nif (replyMatch.length > 1) {\n  replyText = replyMatch[1];\n}\n\nconst metaMatch = text.split('---META---');\nif (metaMatch.length > 1) {\n  const metaRaw = metaMatch[1].trim();\n  // Trim replyText to remove everything after ---META---\n  replyText = replyText.split('---META---')[0].trim();\n  try {\n    meta = JSON.parse(metaRaw);\n    action = meta.action || 'reply_only';\n  } catch (e) {\n    // If JSON parse fails, default to reply_only\n    action = 'reply_only';\n  }\n}\n\n// Carry forward the original email fields from the upstream node\nreturn [\n  {\n    json: {\n      replyText,\n      action,\n      meta,\n      from: $('Extract Email').first().json.from,\n      subject: $('Extract Email').first().json.subject,\n      body: $('Extract Email').first().json.body,\n      threadId: $('Extract Email').first().json.threadId,\n      messageId: $('Extract Email').first().json.messageId,\n      timestamp: $('Extract Email').first().json.timestamp\n    }\n  }\n];\n"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000004",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        960,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "rsvp",
+              "output": 0
+            },
+            {
+              "value": "escalate",
+              "output": 1
+            },
+            {
+              "value": "reply_only",
+              "output": 2
+            }
+          ]
+        },
+        "fallbackOutput": 2,
+        "dataType": "string",
+        "value1": "={{ $json.action }}"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000005",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.from }}",
+        "subject": "=Re: {{ $json.subject }}",
+        "message": "={{ $json.replyText }}",
+        "options": {
+          "threadId": "={{ $json.threadId }}"
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000006",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1500,
+        660
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendarId": "primary",
+        "eventId": "={{ $json.meta.eventId }}",
+        "additionalFields": {
+          "attendees": "={{ $json.from }}"
+        },
+        "operation": "update"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000007",
+      "name": "Add RSVP",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        260
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "3",
+          "name": "Google Calendar Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.from }}",
+        "subject": "=Re: {{ $json.subject }}",
+        "message": "={{ $json.replyText }}",
+        "options": {
+          "threadId": "={{ $json.threadId }}"
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000008",
+      "name": "RSVP Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1740,
+        260
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "officers@yourclub.toastmastersclubs.org",
+        "subject": "=[AUTO-ESCALATED] {{ $json.subject }}",
+        "message": "=This email was auto-escalated by the ClubDesk bot.\n\n--- Original Message ---\nFrom: {{ $json.from }}\nSubject: {{ $json.subject }}\n\n{{ $json.body }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000009",
+      "name": "Forward to Officers",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1500,
+        460
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.from }}",
+        "subject": "=Re: {{ $json.subject }}",
+        "message": "={{ $json.replyText }}",
+        "options": {
+          "threadId": "={{ $json.threadId }}"
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000010",
+      "name": "Escalate Auto-Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1740,
+        460
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "byName",
+          "value": "Email Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "From": "={{ $json.from }}",
+            "Subject": "={{ $json.subject }}",
+            "Action": "={{ $json.action }}",
+            "Reply Snippet": "={{ $json.replyText.substring(0, 200) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "From",
+              "displayName": "From",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "Action",
+              "displayName": "Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "Reply Snippet",
+              "displayName": "Reply Snippet",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000011",
+      "name": "Log Interaction",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        2040,
+        460
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4",
+          "name": "Google Sheets Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email": {
+      "main": [
+        [
+          {
+            "node": "Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Add RSVP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Forward to Officers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add RSVP": {
+      "main": [
+        [
+          {
+            "node": "RSVP Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSVP Reply": {
+      "main": [
+        [
+          {
+            "node": "Log Interaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to Officers": {
+      "main": [
+        [
+          {
+            "node": "Escalate Auto-Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate Auto-Reply": {
+      "main": [
+        [
+          {
+            "node": "Log Interaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reply": {
+      "main": [
+        [
+          {
+            "node": "Log Interaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "toastmasters",
+      "id": "1"
+    },
+    {
+      "name": "email-automation",
+      "id": "2"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-16T00:00:00.000Z",
+  "versionId": "1"
+}

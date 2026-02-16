@@ -1,0 +1,6 @@
+# Replace n8n.yourdomain.com with your actual domain
+# Caddy automatically provisions HTTPS via Let's Encrypt
+
+n8n.yourdomain.com {
+    reverse_proxy n8n:5678
+}
