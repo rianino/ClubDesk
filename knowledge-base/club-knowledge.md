@@ -10,8 +10,11 @@
 - **Language rotation**:
   - 🇵🇹 Portuguese: 1st and 3rd Mondays of the month
   - 🇬🇧 English: 2nd and 4th Mondays of the month
-- **No meetings on**: [Update: list holiday weeks when no sessions occur]
-- **Next session agenda**: [versão computador link] | [versão mobile link]
+- **No meetings on**:
+  - The entire month of August
+  - Portuguese national holidays (Janeiro 1, Sexta-feira Santa, Domingo de Páscoa, Abril 25, Maio 1, Corpo de Deus, Junho 10, Agosto 15, Outubro 5, Novembro 1, Dezembro 1, Dezembro 8, Dezembro 25)
+  - December 22 – January 2 (Christmas/New Year break)
+- **Next session agenda**: https://tmclub.eu/view_meeting.php?show=next&c=397
 
 ## How to Visit
 
@@ -53,9 +56,9 @@ Toastmasters International is a worldwide nonprofit that helps people develop pu
 
 ## Social Media & Links
 
-- **Facebook**: [Facebook page link]
-- **Instagram**: [Instagram page link]
-- **LinkedIn**: [LinkedIn page link]
+- **Facebook**: https://www.facebook.com/oportotoastmasters
+- **Instagram**: https://www.instagram.com/oporto.toastmasters/
+- **LinkedIn**: https://www.linkedin.com/company/oporto-toastmasters-club/
 - **Toastmasters International**: https://www.toastmasters.org
 - **Registration form**: https://tinyurl.com/oportotoastmastersclub
 
