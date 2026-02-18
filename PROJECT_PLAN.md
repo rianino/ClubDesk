@@ -140,6 +140,82 @@ docker run -d --restart unless-stopped \
 - [ ] Stop checking
 - [ ] Optional: weekly summary workflow (Cron Sunday 9am → read logs → Claude summarize → email)
 
+---
+
+### Phase 5 — Productization & Distribution (Post-Launch)
+
+The goal is to turn ClubDesk from a bespoke Oporto deployment into a product that any Toastmasters club (or similar speaking club) can buy and use with minimal setup.
+
+> **Architecture note (do this before Phase 1):** All Oporto-specific data must live in `club-config.yml`, not hardcoded in workflows or prompts. This makes the entire codebase already parameterized when it's time to package — no refactor needed later.
+
+#### Step 1: Config Abstraction (do before Phase 1 launch)
+- [ ] Create `club-config.yml` — single source of truth for all club-specific values:
+  - Club name, city, language(s)
+  - Meeting day, time, location, format (hybrid/in-person/online)
+  - Email address, social handles (Facebook, Instagram, LinkedIn)
+  - Registration link, dues, IBAN, bank account name
+  - Officer names + roles (for escalation routing)
+  - Holiday/closure dates
+- [ ] Update all n8n workflows to read values from `club-config.yml` (via n8n variables or environment injection)
+- [ ] Update all prompts to use `{{clubName}}`, `{{meetingTime}}`, etc. — no hardcoded "Oporto" anywhere
+- [ ] Update `docker-compose.yml` to mount `club-config.yml` as a volume
+
+#### Step 2: Knowledge Base Template
+- [ ] Create `knowledge-base/club-knowledge.template.md` — blank version of the knowledge base with clear instructions for each section
+- [ ] Add a `setup/onboarding-questionnaire.md` — 20-question form club officers fill out; answers map directly to the template sections
+- [ ] Document how to go from questionnaire → populated knowledge base (manual fill or scripted)
+
+#### Step 3: Onboarding Automation
+- [ ] Build `scripts/onboard.sh` — interactive CLI that:
+  - Prompts for club info (name, email, schedule, social links, etc.)
+  - Writes `club-config.yml` automatically
+  - Generates a pre-filled `club-knowledge.md` from the template
+  - Outputs a checklist of manual steps remaining (OAuth, Meta App, etc.)
+- [ ] Build `scripts/validate-config.sh` — checks that all required fields are populated, no placeholder values remain
+
+#### Step 4: Deployment Packaging
+- [ ] One-command deploy: `./scripts/setup.sh` handles VPS bootstrap, Docker install, n8n launch, Caddy config
+- [ ] Add `docker-compose.yml` health checks and auto-restart for all services
+- [ ] Create a `SETUP_GUIDE.md` (non-technical) — step-by-step for club officers with no DevOps experience:
+  - What services to sign up for and in what order
+  - Screenshots / exact UI steps for Google Cloud, Meta App, n8n credential setup
+  - Estimated time per step
+- [ ] Create `docs/officer-guide.md` — how to update the knowledge base, handle escalations, read the log sheet
+
+#### Step 5: Choose a Distribution Model
+
+Three viable options (decide based on how much ops work you want):
+
+| Model | Price | You host? | Effort per club | Best for |
+|-------|-------|-----------|-----------------|----------|
+| **SaaS** | €30-60/mo/club | Yes | Low (automated onboarding) | Scale |
+| **Self-hosted license** | €200-500 one-time | No | Medium (support questions) | Tech-savvy clubs |
+| **Done-for-you setup** | €300-800 one-time + €20/mo | No | High (manual per club) | Premium, early customers |
+
+Recommendation: Start with **done-for-you** for the first 3-5 clubs (high-touch, gather feedback), then productize into SaaS once the onboarding is proven.
+
+#### Step 6: Legal & Compliance
+- [ ] Write `TERMS.md` and `PRIVACY.md` — essential since this handles club member data (GDPR applies, Portugal is EU)
+- [ ] Decide on data residency: where is member data stored? (Google Sheets, n8n instance location)
+- [ ] Draft a simple Data Processing Agreement (DPA) for clubs — required under GDPR for B2B
+- [ ] Clarify IP ownership: the club's knowledge base content is theirs; ClubDesk workflows are yours
+
+#### Step 7: Go-to-Market
+- [ ] Identify target channels:
+  - Toastmasters District newsletters and Facebook groups
+  - Area and Division Director mailing lists (they have direct access to club officers)
+  - Toastmasters International convention / regional events
+- [ ] Build a 1-page landing page showing the problem → solution → pricing → "get started"
+- [ ] Prepare a demo video showing a real conversation (Oporto data, anonymized)
+- [ ] Offer first 2-3 clubs a discounted pilot in exchange for testimonials and feedback
+
+#### Step 8: Multi-Club Operations (if SaaS)
+- [ ] Decide: one shared n8n instance with tenant isolation, or one n8n instance per club
+  - Recommendation: one Docker stack per club (simpler isolation, easier to debug, ~$6/mo per club VPS)
+- [ ] Build `scripts/provision-club.sh` — spins up a new club's full stack from a single command
+- [ ] Set up centralized uptime monitoring (UptimeRobot) across all club instances
+- [ ] Create a private dashboard or Notion page for tracking all active clubs
+
 ## Key n8n Workflows
 
 1. **`email-responder`** — Gmail Trigger → Extract → Claude → Reply/RSVP/Escalate → Log
@@ -177,23 +253,28 @@ docker run -d --restart unless-stopped \
 
 ## Estimated Time
 
-| Week | Hours | Focus |
-|------|-------|-------|
-| 1 | 8-10 | n8n deploy, Gmail + social DM workflows |
-| 2 | 6-8 | Retell voice agent, phone forwarding |
-| 3 | 5-6 | RAG, guardrails, full test suite |
-| 4 | 3-4 | Cutover, brief monitoring, hands-off |
-| 5+ | 0-0.5 | Optional weekly summary glance |
-| **Total** | **~22-28** | |
+| Phase | Week | Hours | Focus |
+|-------|------|-------|-------|
+| 0 | Pre-work | 4 | VPS, credentials, knowledge base |
+| 1 | 1 | 8-10 | Gmail + social DM workflows |
+| 2 | 2 | 6-8 | Retell voice agent, phone forwarding |
+| 3 | 3 | 5-6 | RAG, guardrails, full test suite |
+| 4 | 4 | 3-4 | Cutover, monitoring, hands-off |
+| 5a | 5-6 | 6-8 | Config abstraction, templates, onboarding scripts |
+| 5b | 7-8 | 8-12 | Packaging, docs, legal, landing page |
+| 5c | 9+ | Ongoing | Selling, onboarding clubs, support |
+| **Total** | | **~40-52** | |
 
 ## Project Structure
 
 ```
 ClubDesk/
-├── PROJECT_PLAN.md          # This file — full build plan
+├── PROJECT_PLAN.md                        # This file — full build plan
+├── club-config.yml                        # [Phase 5a] All club-specific values (one per deployment)
 ├── knowledge-base/
-│   └── club-knowledge.md    # Club FAQ, schedule, tone guide (THE critical asset)
-├── n8n-workflows/           # Exported n8n workflow JSON files
+│   ├── club-knowledge.md                  # Populated knowledge base (Oporto instance)
+│   └── club-knowledge.template.md         # [Phase 5a] Blank template for new clubs
+├── n8n-workflows/                         # Exported n8n workflow JSON files
 │   ├── email-responder.json
 │   ├── meta-webhook-verify.json
 │   ├── messenger-responder.json
@@ -203,14 +284,25 @@ ClubDesk/
 │   ├── retell-post-call.json
 │   ├── embed-knowledge.json
 │   └── weekly-summary.json
-├── prompts/                 # Claude system prompts (version-controlled)
+├── prompts/                               # Claude system prompts — uses {{variables}}, no hardcoding
 │   ├── email-system.md
 │   ├── chat-system.md
 │   └── voice-system.md
 ├── docker/
-│   └── docker-compose.yml   # n8n + reverse proxy deployment
+│   └── docker-compose.yml                 # n8n + Caddy deployment (parameterized)
 ├── scripts/
-│   └── setup.sh             # VPS bootstrap script
+│   ├── setup.sh                           # VPS bootstrap script
+│   ├── onboard.sh                         # [Phase 5a] Interactive new-club setup wizard
+│   └── validate-config.sh                 # [Phase 5a] Checks config for missing/placeholder values
+├── setup/
+│   └── onboarding-questionnaire.md        # [Phase 5a] 20-question form for club officers
+├── docs/
+│   ├── SETUP_GUIDE.md                     # [Phase 5b] Non-technical setup guide with screenshots
+│   └── officer-guide.md                   # [Phase 5b] How to update KB, handle escalations, read logs
+├── legal/
+│   ├── TERMS.md                           # [Phase 5b] Terms of service
+│   ├── PRIVACY.md                         # [Phase 5b] Privacy policy
+│   └── DPA.md                             # [Phase 5b] Data Processing Agreement (GDPR)
 └── tests/
-    └── test-matrix.md       # Test scenarios and results tracking
+    └── test-matrix.md                     # Test scenarios and results tracking
 ```
