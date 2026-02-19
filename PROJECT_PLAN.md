@@ -29,19 +29,23 @@ Build a fully autonomous agent that handles ALL incoming communications for a lo
 
 | Service | Purpose | Cost |
 |---------|---------|------|
-| n8n self-hosted (Docker) | Orchestration brain | Free (Community Edition) + ~$6/mo VPS |
-| Anthropic API (Claude) | LLM reasoning/replies | ~$5-15/mo at low volume |
-| Retell AI | Voice agent for phone calls | Free tier / ~$0.10/min |
+| n8n self-hosted (Docker) | Orchestration brain | Free (Community Edition) |
+| Oracle Cloud Free Tier | VPS — 4 vCPUs, 24GB RAM | **Free forever** (one account) |
+| Anthropic API (Claude Haiku) | LLM for most responses | ~€0.50-1/mo at club scale |
+| Anthropic API (Claude Sonnet) | Complex/ambiguous messages only | Minimal — Haiku handles ~90% |
+| Retell AI | Voice agent — **skip until proven needed** | €0 for now |
 | Google Cloud (Gmail + Calendar APIs) | Email + RSVP | Free |
 | Meta Developer App | FB Messenger + IG DMs | Free |
-| Pinecone (optional) | Vector store for RAG | Free tier |
+| Pinecone | Vector store — **skip, use full-context** | €0 |
 | UptimeRobot | Uptime monitoring | Free |
+| **Total (MVP)** | | **~€1/mo** |
 
 ## Phased Build Plan
 
 ### Phase 0 — Foundation (Day 1–2, ~4 hrs)
 
-- [ ] Deploy n8n on VPS via Docker with HTTPS (Cloudflare Tunnel or Caddy)
+- [ ] Provision Oracle Cloud Free Tier ARM instance (4 vCPUs / 24GB RAM — free forever, one per account)
+- [ ] Deploy n8n on Oracle instance via Docker with HTTPS (Caddy)
 - [ ] Sign up for all services and collect API keys
 - [ ] Write `knowledge-base/club-knowledge.md` with full FAQ, schedule, tone guidelines
 - [ ] Create Google Cloud project, enable Gmail + Calendar APIs, create OAuth credentials
@@ -186,13 +190,19 @@ The goal is to turn ClubDesk from a bespoke Oporto deployment into a product tha
 
 Three viable options (decide based on how much ops work you want):
 
-| Model | Price | You host? | Effort per club | Best for |
-|-------|-------|-----------|-----------------|----------|
-| **SaaS** | €30-60/mo/club | Yes | Low (automated onboarding) | Scale |
-| **Self-hosted license** | €200-500 one-time | No | Medium (support questions) | Tech-savvy clubs |
-| **Done-for-you setup** | €300-800 one-time + €20/mo | No | High (manual per club) | Premium, early customers |
+| Model | Price | You host? | Infra cost to you | Best for |
+|-------|-------|-----------|-------------------|----------|
+| **SaaS (shared instance)** | €20-40/mo/club | Yes | ~€0 (Oracle free, all clubs on one server) | Scale with near-zero infra cost |
+| **Self-hosted license** | €200-500 one-time | No | €0 | Tech-savvy clubs who want control |
+| **Done-for-you setup** | €300-800 one-time + €20/mo | No | €0 (club pays their own VPS ~€4/mo) | Premium, early customers |
 
-Recommendation: Start with **done-for-you** for the first 3-5 clubs (high-touch, gather feedback), then productize into SaaS once the onboarding is proven.
+**Infrastructure reality at scale:**
+- Oracle free tier = 1 account = 1 server (4 vCPUs, 24GB RAM)
+- 20-30 low-traffic clubs on one n8n instance is easily feasible
+- You only need paid VPS if you outgrow that server or want redundancy
+- At 30 clubs × €30/mo = €900/mo revenue with ~€1-10/mo infra cost — margins are exceptional
+
+Recommendation: Start with **done-for-you** for the first 3-5 clubs (high-touch, gather feedback). Host all clubs on your one Oracle server. Only pay for infrastructure if you outgrow it, which is a good problem to have.
 
 #### Step 6: Legal & Compliance
 - [ ] Write `TERMS.md` and `PRIVACY.md` — essential since this handles club member data (GDPR applies, Portugal is EU)
@@ -210,11 +220,14 @@ Recommendation: Start with **done-for-you** for the first 3-5 clubs (high-touch,
 - [ ] Offer first 2-3 clubs a discounted pilot in exchange for testimonials and feedback
 
 #### Step 8: Multi-Club Operations (if SaaS)
-- [ ] Decide: one shared n8n instance with tenant isolation, or one n8n instance per club
-  - Recommendation: one Docker stack per club (simpler isolation, easier to debug, ~$6/mo per club VPS)
-- [ ] Build `scripts/provision-club.sh` — spins up a new club's full stack from a single command
-- [ ] Set up centralized uptime monitoring (UptimeRobot) across all club instances
-- [ ] Create a private dashboard or Notion page for tracking all active clubs
+- [ ] Architecture: all clubs on one shared n8n instance (Oracle free server), logically separated by:
+  - Separate n8n workflows per club, named `clubname-email-responder` etc.
+  - Each club's credentials stored as separate n8n credential entries
+  - Each club's knowledge base as a separate environment variable or file
+- [ ] Build `scripts/provision-club.sh` — adds a new club's workflows + credentials to the running n8n instance
+- [ ] Set up UptimeRobot to monitor the single n8n instance
+- [ ] Create a Notion page (or Google Sheet) tracking all active clubs and their config
+- [ ] **When to add a paid server**: if Oracle instance CPU/RAM regularly exceeds 70%, or if Oracle terminates the instance (rare). At that point migrate to Hetzner (~€15/mo for a powerful instance).
 
 ## Key n8n Workflows
 
@@ -244,12 +257,41 @@ Recommendation: Start with **done-for-you** for the first 3-5 clubs (high-touch,
 |-------|-----|
 | Meta webhook verification timeout | Dedicated lightweight GET workflow, respond within 3s |
 | Gmail OAuth token expiry | Use Service Account or ensure n8n token refresh; check every 60 days |
-| n8n crash / VPS restart | Docker `--restart unless-stopped` + UptimeRobot |
+| n8n crash / server restart | Docker `--restart unless-stopped` + UptimeRobot |
+| Oracle free instance terminated | Rare but possible — keep a Docker volume backup; migration to Hetzner takes ~1hr |
 | Voice interruption issues | Retell `interruptionSensitivity`: medium, `responsiveness`: 600-800ms |
 | Claude hallucinating meeting times | Put facts FIRST in system prompt; add "escalate if unsure" rule |
 | Duplicate replies from webhook retries | Dedup by messageId in n8n static data |
 | "Are you a bot?" questions | Prompt: deflect naturally, offer to connect with officers |
 | Stale knowledge base | Single Google Doc as source of truth; manual-trigger re-embed workflow |
+
+## Token Cost Minimization
+
+Claude API cost is the only real ongoing expense. Four rules keep it near zero:
+
+**1. Haiku-first routing (biggest impact, ~90% cost reduction)**
+Route all incoming messages to Claude Haiku by default. Haiku handles straightforward FAQ responses perfectly. Only escalate to Sonnet if Haiku's response includes an `ESCALATE` flag or confidence score below threshold. At club traffic volumes (~5-20 msgs/day), Haiku costs fractions of a cent per message.
+
+**2. Anthropic prompt caching**
+The knowledge base and system prompt are identical on every request. Set `cache_control: ephemeral` on the system prompt block in every API call. Cached input tokens cost 90% less. This is a one-line change per workflow and saves the majority of input token cost.
+
+**3. Pre-filter in n8n before hitting Claude**
+Add an n8n IF node before the Claude call to discard:
+- Empty messages
+- Webhook verification pings
+- Known spam patterns
+- Messages from blocked senders
+No Claude call = zero cost for that message.
+
+**4. Hard token limits**
+Already in the plan: 300 max tokens for chat, 500 for email. Do not increase these. Haiku responses at this length cost ~€0.001 per message.
+
+**Cost at scale:**
+| Clubs | Msgs/day | Monthly API cost |
+|-------|----------|-----------------|
+| 1 (Oporto) | 10 | ~€0.50 |
+| 10 clubs | 100 | ~€3-5 |
+| 30 clubs | 300 | ~€10-15 |
 
 ## Estimated Time
 
