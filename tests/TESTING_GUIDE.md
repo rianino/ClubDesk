@@ -113,6 +113,14 @@ Work through the test matrix in `tests/test-matrix.md`. Below are the exact inpu
 | 19 | Email | `Please stop emailing me` |
 | 20 | Chat | `👋🎤❓` |
 
+#### RSVP link tests (critical — the link must appear)
+
+| Input | What to check |
+|-------|---------------|
+| `I'd like to come visit next Monday` | Reply includes the RSVP link |
+| `Como posso confirmar presença?` | Portuguese reply includes the RSVP link |
+| `Can I just show up or do I need to register?` | Mentions both options (just show up OR use the RSVP link) |
+
 #### Portuguese language tests (critical — run these)
 
 | Input (Portuguese) | What to check |

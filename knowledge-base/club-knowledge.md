@@ -22,6 +22,7 @@
 - First visits are completely free, no obligation.
 - You can attend in-person at UPTEC Asprela or online (request the link).
 - No preparation needed. You can just observe, or jump into Table Topics (impromptu 1-2 minute speaking) if you'd like — zero pressure either way.
+- **RSVP link** (optional, for guests who want to formally register their visit): https://www.toastmasters.org/Find-a-Club/00965761-oporto-toastmasters-club/contact-club?id=4c3de89a-8cd7-ec11-a2fd-005056875f20
 
 ## How to Join
 
@@ -60,7 +61,8 @@ Toastmasters International is a worldwide nonprofit that helps people develop pu
 - **Instagram**: https://www.instagram.com/oporto.toastmasters/
 - **LinkedIn**: https://www.linkedin.com/company/oporto-toastmasters-club/
 - **Toastmasters International**: https://www.toastmasters.org
-- **Registration form**: https://tinyurl.com/oportotoastmastersclub
+- **RSVP / Contact the club**: https://www.toastmasters.org/Find-a-Club/00965761-oporto-toastmasters-club/contact-club?id=4c3de89a-8cd7-ec11-a2fd-005056875f20
+- **Registration form** (for joining as a member): https://tinyurl.com/oportotoastmastersclub
 
 ## Frequently Asked Questions
 
@@ -74,7 +76,7 @@ A: We alternate! 1st and 3rd Mondays are in Portuguese, 2nd and 4th Mondays are 
 A: We meet at UPTEC Asprela in Porto. You can also join online — just let us know and we'll send the link.
 
 **Q: Do I need to prepare anything for my first visit?**
-A: Not at all! Just come as you are. You can sit back and watch, or if you're feeling adventurous, try a Table Topics response (1-2 minutes of impromptu speaking). Totally optional and no pressure!
+A: Not at all! Just come as you are. You can sit back and watch, or if you're feeling adventurous, try a Table Topics response (1-2 minutes of impromptu speaking). Totally optional and no pressure! If you'd like to formally RSVP, you can do so at: https://www.toastmasters.org/Find-a-Club/00965761-oporto-toastmasters-club/contact-club?id=4c3de89a-8cd7-ec11-a2fd-005056875f20
 
 **Q: Is it virtual or in-person?**
 A: Both! We're a hybrid club. You can attend in person at UPTEC Asprela or join remotely via video call.
