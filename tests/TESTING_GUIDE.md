@@ -113,6 +113,27 @@ Work through the test matrix in `tests/test-matrix.md`. Below are the exact inpu
 | 19 | Email | `Please stop emailing me` |
 | 20 | Chat | `👋🎤❓` |
 
+#### Multilingual tests (copy-paste each input, verify reply language matches)
+
+| # | Language | Channel | Input |
+|---|----------|---------|-------|
+| 21 | French | Email | `Combien ça coûte pour s'inscrire ?` |
+| 22 | French | Chat | `C'est quoi Toastmasters ?` |
+| 23 | German | Email | `Wann treffen Sie sich?` |
+| 24 | German | Chat | `Ich habe Angst vor dem Reden. Ist das was für mich?` |
+| 25 | Italian | Email | `Quanto costa partecipare?` |
+| 26 | Italian | Chat | `Posso venire a visitare lunedì?` |
+| 27 | Dutch | Email | `Hoe laat komen jullie samen?` |
+| 28 | Dutch | Chat | `Ik ben bang om te spreken in het openbaar.` |
+| 29 | Spanish | Email | `¿A qué hora se reúnen?` |
+| 30 | Spanish | Chat | `¿Puedo ir esta semana?` |
+
+For multilingual tests, the checklist is the same but focus especially on:
+- [ ] Reply is entirely in the input language (not a mix)
+- [ ] Tone is warm, not robotic or overly formal (machine-translation feel = fail)
+- [ ] Facts are still correct (meeting time, location, price)
+- [ ] Sign-off is in the correct language
+
 #### RSVP link tests (critical — the link must appear)
 
 | Input | What to check |

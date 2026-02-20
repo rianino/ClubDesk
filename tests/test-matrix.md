@@ -47,10 +47,25 @@ Run through all scenarios before go-live. Target: 14/15 pass (93%+).
 | 19 | "Unsubscribe" | Email | "Please stop emailing me" | Acknowledge, log, stop | [ ] | |
 | 20 | Emoji-only | Messenger | "👋🎤❓" | Friendly greeting + ask how to help | [ ] | |
 
+## Multilingual Tests
+
+| # | Language | Channel | Input | Expected Behavior | Pass? | Notes |
+|---|----------|---------|-------|-------------------|-------|-------|
+| 21 | French | Email | "Combien ça coûte pour s'inscrire ?" | Full reply in French, correct prices | [ ] | |
+| 22 | French | Chat | "C'est quoi Toastmasters ?" | Short reply in French | [ ] | |
+| 23 | German | Email | "Wann treffen Sie sich?" | Full reply in German, correct time/location | [ ] | |
+| 24 | German | Chat | "Ich habe Angst vor dem Reden. Ist das was für mich?" | Warm reassuring reply in German | [ ] | |
+| 25 | Italian | Email | "Quanto costa partecipare?" | Full reply in Italian, correct prices | [ ] | |
+| 26 | Italian | Chat | "Posso venire a visitare lunedì?" | Enthusiastic reply in Italian + RSVP link | [ ] | |
+| 27 | Dutch | Email | "Hoe laat komen jullie samen?" | Full reply in Dutch, correct time/location | [ ] | |
+| 28 | Dutch | Chat | "Ik ben bang om te spreken in het openbaar." | Warm reassuring reply in Dutch | [ ] | |
+| 29 | Spanish | Email | "¿A qué hora se reúnen?" | Full reply in Spanish, correct time/location | [ ] | |
+| 30 | Spanish | Chat | "¿Puedo ir esta semana?" | Enthusiastic reply in Spanish + RSVP link | [ ] | |
+
 ## Results Summary
 
 - **Date tested**: ___________
-- **Total pass**: ___ / 20
+- **Total pass**: ___ / 30
 - **Pass rate**: ___%
 - **Blocking issues found**: ___________
 - **Ready for launch**: [ ] Yes  [ ] No — fix items: ___________
