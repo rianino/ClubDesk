@@ -14,8 +14,8 @@ services:
       # Webhook URL — MUST match your public domain
       - WEBHOOK_URL=${WEBHOOK_URL:?Set WEBHOOK_URL in .env}
       # Timezone
-      - GENERIC_TIMEZONE=${TIMEZONE:-America/New_York}
-      - TZ=${TIMEZONE:-America/New_York}
+      - GENERIC_TIMEZONE=${TIMEZONE:-Europe/Lisbon}
+      - TZ=${TIMEZONE:-Europe/Lisbon}
       # Execution settings
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168

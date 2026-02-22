@@ -55,6 +55,10 @@
               "value": "2023-06-01"
             },
             {
+              "name": "anthropic-beta",
+              "value": "prompt-caching-2024-07-31"
+            },
+            {
               "name": "x-api-key",
               "value": "={{$credentials.httpHeaderAuth.value}}"
             }
@@ -62,7 +66,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 500,\n  \"temperature\": 0.3,\n  \"system\": \"Paste contents of prompts/email-system.md here\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"From: {{ $json.from }}\\nSubject: {{ $json.subject }}\\n\\n{{ $json.body }}\"\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 500,\n  \"temperature\": 0.3,\n  \"system\": [{\"type\": \"text\", \"text\": \"SYSTEM_PROMPT_PLACEHOLDER\", \"cache_control\": {\"type\": \"ephemeral\"}}],\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"From: {{ $json.from }}\\nSubject: {{ $json.subject }}\\n\\n{{ $json.body }}\"\n    }\n  ]\n}",
         "options": {
           "response": {
             "response": {
@@ -204,7 +208,7 @@
     },
     {
       "parameters": {
-        "sendTo": "officers@yourclub.toastmastersclubs.org",
+        "sendTo": "oporto.toastmasters.club@gmail.com",
         "subject": "=[AUTO-ESCALATED] {{ $json.subject }}",
         "message": "=This email was auto-escalated by the ClubDesk bot.\n\n--- Original Message ---\nFrom: {{ $json.from }}\nSubject: {{ $json.subject }}\n\n{{ $json.body }}",
         "options": {}
