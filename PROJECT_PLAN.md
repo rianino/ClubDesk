@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Goal
 
-Build a fully autonomous agent that handles ALL incoming communications for a local Toastmasters club across email (Gmail), Facebook Messenger, Instagram DMs, and phone calls — with zero ongoing human involvement after launch.
+Build a fully autonomous agent that handles ALL incoming communications for a local Toastmasters club across email (Gmail), Facebook Messenger, and Instagram DMs — with zero ongoing human involvement after launch.
 
 ## Architecture Overview
 
@@ -17,10 +17,9 @@ Build a fully autonomous agent that handles ALL incoming communications for a lo
 ┌──────────┐    ┌────────────────▼───────────────┐    ┌──────────────┐
 │  Gmail    │───▶│                                │───▶│ Google Cal   │
 │  Meta DMs │───▶│     n8n  (Central Brain)       │───▶│ (RSVP)       │
-│  IG DMs   │───▶│                                │───▶│              │
-│  Retell   │───▶│  Trigger → Classify → Claude   │    └──────────────┘
-└──────────┘    │  → Act → Reply → Log            │    ┌──────────────┐
-                │                                │───▶│ Google Sheet  │
+│  IG DMs   │───▶│                                │    └──────────────┘
+└──────────┘    │  Trigger → Classify → Claude   │    ┌──────────────┐
+                │  → Act → Reply → Log            │───▶│ Google Sheet  │
                 └────────────────────────────────┘    │ (Log)         │
                                                       └──────────────┘
 ```
@@ -33,7 +32,6 @@ Build a fully autonomous agent that handles ALL incoming communications for a lo
 | Oracle Cloud Free Tier | VPS — 4 vCPUs, 24GB RAM | **Free forever** (one account) |
 | Anthropic API (Claude Haiku) | LLM for most responses | ~€0.50-1/mo at club scale |
 | Anthropic API (Claude Sonnet) | Complex/ambiguous messages only | Minimal — Haiku handles ~90% |
-| Retell AI | Voice agent — **skip until proven needed** | €0 for now |
 | Google Cloud (Gmail + Calendar APIs) | Email + RSVP | Free |
 | Meta Developer App | FB Messenger + IG DMs | Free |
 | Pinecone | Vector store — **skip, use full-context** | €0 |
@@ -88,24 +86,6 @@ docker run -d --restart unless-stopped \
 - [ ] Create `Core Brain` sub-workflow: normalize → Claude → parse → route
 - [ ] Each channel workflow handles only intake + channel-specific reply delivery
 
-### Phase 2 — Week 2: Voice Agent (~6-8 hrs)
-
-#### Day 8-9: Retell AI Setup (3 hrs)
-- [ ] Create Retell agent with warm voice, custom LLM pointing to n8n webhook
-- [ ] Configure system prompt for natural phone conversation
-- [ ] Enable function calling: `rsvp_guest`, `escalate`, `get_next_meeting`
-- [ ] Build n8n webhook workflow for Retell tool calls
-
-#### Day 10: Phone Number & Forwarding (1 hr)
-- [ ] Buy Retell phone number or set up call forwarding from existing club number
-
-#### Day 11: Post-Call Processing (2 hrs)
-- [ ] Build n8n workflow: Retell post-call webhook → Claude summarize → Log → Follow-up email
-
-#### Day 12: Voice Testing (2 hrs)
-- [ ] Test 10+ call scenarios: basic inquiry, RSVP, rambling, wrong number, silence
-- [ ] Tune interruption sensitivity (medium) and responsiveness (600-800ms)
-
 ### Phase 3 — Week 3: Hardening (~6 hrs)
 
 #### Day 15-16: Knowledge Base Optimization (3 hrs)
@@ -128,7 +108,6 @@ docker run -d --restart unless-stopped \
 - [ ] Gmail polling active, personal notifications disabled
 - [ ] Facebook webhook verified and receiving
 - [ ] Instagram DM webhook active
-- [ ] Phone forwarding to Retell active
 - [ ] Google Calendar read/write working
 - [ ] Google Sheet logging working
 - [ ] All n8n workflows set to Active
@@ -142,7 +121,7 @@ docker run -d --restart unless-stopped \
 
 #### Day 26-28: Full Hands-Off
 - [ ] Stop checking
-- [ ] Optional: weekly summary workflow (Cron Sunday 9am → read logs → Claude summarize → email)
+- [ ] Optional: weekly summary workflow (Cron Sunday 9am → read logs across email/Messenger/IG → Claude summarize → email). Not yet built — schemas across channel logs need to be unified first.
 
 ---
 
@@ -236,10 +215,7 @@ Recommendation: Start with **done-for-you** for the first 3-5 clubs (high-touch,
 3. **`messenger-responder`** — Webhook POST → Extract → Claude → Meta API Reply → Log
 4. **`instagram-responder`** — Webhook POST → Extract → Claude → Meta API Reply → Log
 5. **`core-brain`** — Sub-workflow: normalize → Claude → parse → route (shared by all channels)
-6. **`retell-tool-handler`** — Webhook for Retell function calls → execute action → return result
-7. **`retell-post-call`** — Post-call webhook → summarize → log → follow-up email
-8. **`embed-knowledge`** — Manual trigger → chunk docs → embed → upsert to Pinecone
-9. **`weekly-summary`** — Cron → read logs → Claude summarize → email to owner
+6. **`embed-knowledge`** — Manual trigger → chunk docs → embed → upsert to Pinecone
 
 ## Claude System Prompt Guidelines
 
@@ -259,7 +235,6 @@ Recommendation: Start with **done-for-you** for the first 3-5 clubs (high-touch,
 | Gmail OAuth token expiry | Use Service Account or ensure n8n token refresh; check every 60 days |
 | n8n crash / server restart | Docker `--restart unless-stopped` + UptimeRobot |
 | Oracle free instance terminated | Rare but possible — keep a Docker volume backup; migration to Hetzner takes ~1hr |
-| Voice interruption issues | Retell `interruptionSensitivity`: medium, `responsiveness`: 600-800ms |
 | Claude hallucinating meeting times | Put facts FIRST in system prompt; add "escalate if unsure" rule |
 | Duplicate replies from webhook retries | Dedup by messageId in n8n static data |
 | "Are you a bot?" questions | Prompt: deflect naturally, offer to connect with officers |
@@ -299,13 +274,12 @@ Already in the plan: 300 max tokens for chat, 500 for email. Do not increase the
 |-------|------|-------|-------|
 | 0 | Pre-work | 4 | VPS, credentials, knowledge base |
 | 1 | 1 | 8-10 | Gmail + social DM workflows |
-| 2 | 2 | 6-8 | Retell voice agent, phone forwarding |
-| 3 | 3 | 5-6 | RAG, guardrails, full test suite |
-| 4 | 4 | 3-4 | Cutover, monitoring, hands-off |
-| 5a | 5-6 | 6-8 | Config abstraction, templates, onboarding scripts |
-| 5b | 7-8 | 8-12 | Packaging, docs, legal, landing page |
-| 5c | 9+ | Ongoing | Selling, onboarding clubs, support |
-| **Total** | | **~40-52** | |
+| 3 | 2 | 5-6 | RAG, guardrails, full test suite |
+| 4 | 3 | 3-4 | Cutover, monitoring, hands-off |
+| 5a | 4-5 | 6-8 | Config abstraction, templates, onboarding scripts |
+| 5b | 6-7 | 8-12 | Packaging, docs, legal, landing page |
+| 5c | 8+ | Ongoing | Selling, onboarding clubs, support |
+| **Total** | | **~34-44** | |
 
 ## Project Structure
 
@@ -322,14 +296,10 @@ ClubDesk/
 │   ├── messenger-responder.json
 │   ├── instagram-responder.json
 │   ├── core-brain.json
-│   ├── retell-tool-handler.json
-│   ├── retell-post-call.json
-│   ├── embed-knowledge.json
-│   └── weekly-summary.json
+│   └── embed-knowledge.json
 ├── prompts/                               # Claude system prompts — uses {{variables}}, no hardcoding
 │   ├── email-system.md
-│   ├── chat-system.md
-│   └── voice-system.md
+│   └── chat-system.md
 ├── docker/
 │   └── docker-compose.yml                 # n8n + Caddy deployment (parameterized)
 ├── scripts/

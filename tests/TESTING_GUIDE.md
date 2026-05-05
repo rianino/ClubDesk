@@ -242,6 +242,5 @@ Verify:
 |------|-----------------|
 | `prompts/email-system.md` | How the agent thinks and replies to emails |
 | `prompts/chat-system.md` | How the agent replies to Messenger/Instagram DMs |
-| `prompts/voice-system.md` | How the phone agent handles calls |
 | `knowledge-base/club-knowledge.md` | All facts the agent is allowed to use |
 | `tests/test-matrix.md` | Track your pass/fail results here |

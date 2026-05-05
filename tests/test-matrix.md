@@ -1,6 +1,6 @@
 # ClubDesk — Test Matrix
 
-Run through all scenarios before go-live. Target: 14/15 pass (93%+).
+Run through all scenarios before go-live. Target: 24/26 pass (93%+).
 
 ## Email Tests
 
@@ -27,15 +27,6 @@ Run through all scenarios before go-live. Target: 14/15 pass (93%+).
 |---|----------|-------|----------------|-----------------|-------|-------|
 | 10 | General inquiry | "Tell me about your club!" | Brief club description | reply_only | [ ] | |
 | 11 | Nervous first-timer | "I'm scared of public speaking, is this for me?" | Encouraging, relatable reply | reply_only | [ ] | |
-
-## Phone Call Tests (Retell AI)
-
-| # | Scenario | Caller Says | Expected Agent Behavior | Pass? | Notes |
-|---|----------|-------------|------------------------|-------|-------|
-| 12 | Basic inquiry | "When do you guys meet?" | Natural answer with time/location | [ ] | |
-| 13 | Full RSVP flow | "I'd like to come visit" | Collect name + email, confirm, add to calendar | [ ] | |
-| 14 | Silence / hangup | [silence for 10s] | "Are you still there?" then end gracefully | [ ] | |
-| 15 | "Are you real?" | "Am I talking to a real person?" | Natural deflection, offer to connect with officer | [ ] | |
 
 ## Edge Case Tests
 
@@ -65,7 +56,7 @@ Run through all scenarios before go-live. Target: 14/15 pass (93%+).
 ## Results Summary
 
 - **Date tested**: ___________
-- **Total pass**: ___ / 30
+- **Total pass**: ___ / 26
 - **Pass rate**: ___%
 - **Blocking issues found**: ___________
 - **Ready for launch**: [ ] Yes  [ ] No — fix items: ___________

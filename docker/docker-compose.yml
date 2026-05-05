@@ -19,8 +19,6 @@ services:
       # Execution settings
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
-      # Optional: increase payload size for voice transcripts
-      - N8N_PAYLOAD_SIZE_MAX=16
     volumes:
       - n8n_data:/home/node/.n8n
     healthcheck:
