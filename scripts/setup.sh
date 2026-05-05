@@ -29,7 +29,7 @@ fi
 
 # --- 3. Install Docker Compose ---
 echo "[3/6] Installing Docker Compose..."
-if ! command -v docker compose &> /dev/null; then
+if ! docker compose version &> /dev/null; then
     apt-get install -y -qq docker-compose-plugin
     echo "Docker Compose installed."
 else
